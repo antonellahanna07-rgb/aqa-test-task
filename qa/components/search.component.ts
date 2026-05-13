@@ -14,23 +14,25 @@ export class Search extends BaseComponent {
   readonly input: Locator;
 
   constructor(page: Page) {
+    // Vikunja v2 renders the search affordance as a FontAwesome
+    // magnifying-glass icon nested in a clickable wrapper (button or
+    // anchor). Target that wrapper so toBeVisible/toBeEnabled hit the
+    // interactive ancestor, not the aria-hidden SVG itself.
     super(
       page,
       page
         .locator(
           [
+            'button:has(.fa-magnifying-glass)',
+            'a:has(.fa-magnifying-glass)',
+            '[role="button"]:has(.fa-magnifying-glass)',
             '[data-cy="search"]',
             '[data-cy="quick-actions"]',
-            '.quick-actions',
-            '[class*="search" i]',
           ].join(', '),
         )
         .first(),
     );
-    this.trigger = page
-      .getByRole('button', { name: /search|quick\s*actions/i })
-      .or(page.locator('.search-button, [class*="search-button" i]'))
-      .first();
+    this.trigger = this.root;
     this.input = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i)).first();
   }
 

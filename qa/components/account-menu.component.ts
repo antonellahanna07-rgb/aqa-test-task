@@ -11,16 +11,20 @@ export class AccountMenu extends BaseComponent {
   private readonly settingsItem: Locator;
 
   constructor(page: Page) {
+    // Vikunja v2 renders the account menu trigger as a clickable wrapper
+    // (button or anchor) containing `<span class="username">…</span>`.
+    // We target the wrapper rather than the span so toBeVisible/click()
+    // hit the interactive element.
     super(
       page,
       page
         .locator(
           [
+            'button:has(.username)',
+            'a:has(.username)',
+            '[role="button"]:has(.username)',
             '[data-cy="user-menu"]',
             '.user-menu',
-            '.username-dropdown',
-            'button[aria-label*="account" i]',
-            'button[aria-label*="user" i]',
           ].join(', '),
         )
         .first(),
