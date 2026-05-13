@@ -35,4 +35,44 @@ test.describe('Signup @smoke', () => {
 
     await expect.poll(async () => registerPage.errorMessage()).not.toBeNull();
   });
+
+  test('the register button is disabled when required fields are empty', async ({
+    registerPage,
+  }) => {
+    await registerPage.goto();
+    // Form opens with empty fields → client-side validation should keep
+    // the submit button disabled until the user provides values.
+    await expect(registerPage.submitButton).toBeDisabled();
+  });
+
+  test('the register form rejects an invalid email format', async ({ registerPage }) => {
+    const user = UserFactory.build();
+
+    await registerPage.goto();
+    await registerPage.fillForm({
+      username: user.username,
+      email: 'not-a-valid-email',
+      password: user.password,
+    });
+    // Trigger validation: blur the email field, and click submit if the
+    // form lets us (some implementations gate submit on validity, others
+    // surface the error only after a submit attempt — we accept either).
+    await registerPage.blurEmail();
+    if (!(await registerPage.submitButton.isDisabled())) {
+      await registerPage.submitForm().catch(() => {
+        /* the button may flip to disabled mid-click */
+      });
+    }
+
+    // Whichever path Vikunja takes, the UI must end up indicating the
+    // invalid input — either through a visible error or by refusing to
+    // enable submit.
+    await expect
+      .poll(async () => {
+        const err = await registerPage.errorMessage();
+        if (err) return true;
+        return await registerPage.submitButton.isDisabled();
+      })
+      .toBe(true);
+  });
 });

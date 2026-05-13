@@ -1,43 +1,66 @@
 import { Locator, Page } from '@playwright/test';
 import { BasePage } from './base.page';
 
+export interface RegisterFormValues {
+  username: string;
+  email: string;
+  password: string;
+}
+
 export class RegisterPage extends BasePage {
   protected readonly path = '/register';
   private readonly username: Locator;
   private readonly email: Locator;
   private readonly password: Locator;
   private readonly passwordConfirm: Locator;
-  private readonly submit: Locator;
+  /**
+   * Exposed as a public readonly locator so tests can assert on its
+   * enabled/disabled state without going through a wrapper method.
+   */
+  readonly submitButton: Locator;
   private readonly errorBanner: Locator;
 
   constructor(page: Page) {
     super(page);
-    // Match the same pattern Vikunja v2 uses on the login page — accessible
-    // names rather than <label for=...> associations.
     this.username = page.getByRole('textbox', { name: /^\s*username\s*$/i });
     this.email = page.getByRole('textbox', { name: /e-?mail/i });
     this.password = page.getByRole('textbox', { name: /^\s*password\s*$/i });
     this.passwordConfirm = page.getByRole('textbox', {
       name: /confirm.*password|password.*confirm|repeat.*password/i,
     });
-    this.submit = page.getByRole('button', { name: /create.*account|register|sign\s*up/i });
+    this.submitButton = page.getByRole('button', { name: /create.*account|register|sign\s*up/i });
     this.errorBanner = page
       .locator('.message.danger, .notification.is-danger, [role="alert"]')
       .first();
   }
 
   async waitUntilLoaded(): Promise<void> {
-    await this.submit.waitFor({ state: 'visible' });
+    await this.submitButton.waitFor({ state: 'visible' });
   }
 
-  async register(payload: { username: string; email: string; password: string }): Promise<void> {
-    await this.username.fill(payload.username);
-    await this.email.fill(payload.email);
-    await this.password.fill(payload.password);
+  /** Fill the form without submitting. */
+  async fillForm(values: RegisterFormValues): Promise<void> {
+    await this.username.fill(values.username);
+    await this.email.fill(values.email);
+    await this.password.fill(values.password);
     if (await this.passwordConfirm.isVisible().catch(() => false)) {
-      await this.passwordConfirm.fill(payload.password);
+      await this.passwordConfirm.fill(values.password);
     }
-    await this.submit.click();
+  }
+
+  /** Move focus off the email field so the form's blur-based validation fires. */
+  async blurEmail(): Promise<void> {
+    await this.email.blur();
+  }
+
+  async submitForm(): Promise<void> {
+    await this.submitButton.click();
+  }
+
+  /** Convenience: fill + submit in one call. */
+  async register(values: RegisterFormValues): Promise<void> {
+    await this.fillForm(values);
+    await this.submitForm();
   }
 
   async errorMessage(): Promise<string | null> {
