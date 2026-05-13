@@ -19,3 +19,24 @@ export interface RegisterPayload extends AuthCredentials {
 export interface AuthToken {
   token: string;
 }
+
+export interface Project {
+  id: number;
+  title: string;
+  description?: string;
+  identifier?: string;
+  is_archived?: boolean;
+  parent_project_id?: number;
+  hex_color?: string;
+}
+
+export interface ProjectCreatePayload {
+  title: string;
+  description?: string;
+  hex_color?: string;
+  parent_project_id?: number;
+}
+
+export interface ProjectUpdatePayload extends Partial<ProjectCreatePayload> {
+  is_archived?: boolean;
+}

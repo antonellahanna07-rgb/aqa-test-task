@@ -1,5 +1,13 @@
 import { APIRequestContext, APIResponse, request as pwRequest } from '@playwright/test';
-import { AuthCredentials, AuthToken, RegisterPayload, User } from './api-types';
+import {
+  AuthCredentials,
+  AuthToken,
+  Project,
+  ProjectCreatePayload,
+  ProjectUpdatePayload,
+  RegisterPayload,
+  User,
+} from './api-types';
 
 export interface ApiClientOptions {
   baseUrl: string;
@@ -149,18 +157,52 @@ export class UsersApi extends BaseApiClient {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Projects resource                                                  */
+/* ------------------------------------------------------------------ */
+
+export class ProjectsApi extends BaseApiClient {
+  async list(): Promise<Project[]> {
+    return this.get<Project[]>('/projects');
+  }
+
+  async getById(id: number): Promise<Project> {
+    return this.get<Project>(`/projects/${id}`);
+  }
+
+  async create(payload: ProjectCreatePayload): Promise<Project> {
+    return this.put<Project>('/projects', payload);
+  }
+
+  async update(id: number, payload: ProjectUpdatePayload): Promise<Project> {
+    return this.post<Project>(`/projects/${id}`, payload);
+  }
+
+  async remove(id: number): Promise<void> {
+    await this.delete<void>(`/projects/${id}`);
+  }
+
+  async findByTitle(title: string): Promise<Project | undefined> {
+    const all = await this.list();
+    return all.find((p) => p.title === title);
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Facade — composition root for resource clients                     */
 /* ------------------------------------------------------------------ */
 
 export class ApiClient {
   readonly users: UsersApi;
+  readonly projects: ProjectsApi;
 
   constructor(opts: ApiClientOptions) {
     this.users = new UsersApi(opts);
+    this.projects = new ProjectsApi(opts);
   }
 
   setToken(token: string | undefined): void {
     this.users.setToken(token);
+    this.projects.setToken(token);
   }
 
   async loginAs(username: string, password: string): Promise<AuthToken> {
@@ -170,6 +212,6 @@ export class ApiClient {
   }
 
   async dispose(): Promise<void> {
-    await this.users.dispose();
+    await Promise.all([this.users.dispose(), this.projects.dispose()]);
   }
 }
