@@ -196,6 +196,49 @@ test.describe('Project details — done state reflected in views', () => {
   }
 });
 
+test.describe('Project details — edit and delete the project', () => {
+  test('a user can edit a project title from the 3-dots menu', async ({ page, api }) => {
+    const project = await useFreshProject(api);
+    const newTitle = `${project.title} (edited)`;
+
+    const details = new ProjectDetailsPage(page, project.id);
+    await details.goto();
+    await details.actionsMenu.clickAction('Edit');
+
+    // The edit surface is either a modal or a settings page — both
+    // share the same semantic input (`name="projectTitle"`) and a
+    // Save/Update submit. Locate by attribute so we don't depend on
+    // the surrounding container.
+    const titleInput = page.locator('input[name="projectTitle"]').first();
+    await titleInput.waitFor({ state: 'visible' });
+    await titleInput.fill(newTitle);
+
+    await page.getByRole('button', { name: /^\s*(save|update)\s*$/i }).first().click();
+
+    // API ground truth: the rename actually persisted.
+    await expect.poll(async () => (await api.projects.getById(project.id)).title).toBe(newTitle);
+  });
+
+  test('a user can delete a project from the 3-dots menu', async ({ page, api }) => {
+    const project = await useFreshProject(api);
+
+    const details = new ProjectDetailsPage(page, project.id);
+    await details.goto();
+    await details.actionsMenu.clickAction('Delete');
+
+    // Vikunja asks the user to confirm — accept.
+    await details.confirmDialog.confirm();
+
+    // API ground truth: the project is gone.
+    await expect
+      .poll(async () => {
+        const all = await api.projects.list();
+        return all.some((p) => p.id === project.id);
+      })
+      .toBe(false);
+  });
+});
+
 test.describe('Project details — task input validation', () => {
   test('submitting an empty task title does not create anything', async ({ page, api }) => {
     const project = await useFreshProject(api);

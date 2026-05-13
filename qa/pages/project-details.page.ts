@@ -2,6 +2,8 @@ import { Locator, Page } from '@playwright/test';
 import { AuthenticatedPage } from './authenticated.page';
 import { TaskList } from '../components/task-list.component';
 import { ProjectViewTabs } from '../components/project-view-tabs.component';
+import { ProjectActionsMenu } from '../components/project-actions-menu.component';
+import { ConfirmDialog } from '../components/confirm-dialog.component';
 
 /**
  * Vikunja v2 auto-routes to `/projects/<id>` after creating a project,
@@ -23,6 +25,10 @@ export class ProjectDetailsPage extends AuthenticatedPage {
   readonly tasks: TaskList;
   /** View tab strip (List / Gantt / Table / Kanban). */
   readonly views: ProjectViewTabs;
+  /** 3-dots action menu next to the project title (Edit / Archive / Delete / …). */
+  readonly actionsMenu: ProjectActionsMenu;
+  /** Generic confirm dialog used by destructive actions (delete). */
+  readonly confirmDialog: ConfirmDialog;
 
   /**
    * @param projectId  When provided, `goto()` navigates to
@@ -39,6 +45,8 @@ export class ProjectDetailsPage extends AuthenticatedPage {
       .first();
     this.tasks = new TaskList(page);
     this.views = new ProjectViewTabs(page);
+    this.actionsMenu = new ProjectActionsMenu(page);
+    this.confirmDialog = new ConfirmDialog(page);
   }
 
   async waitUntilLoaded(): Promise<void> {
