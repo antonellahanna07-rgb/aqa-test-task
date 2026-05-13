@@ -94,16 +94,29 @@ export class TaskList extends BaseComponent {
    */
   async markDone(title: string): Promise<void> {
     const item = this.taskByTitle(title);
-    const checkbox = item
+
+    // Vikunja v2 keeps a native <input type="checkbox"> in the DOM —
+    // it's the element that owns the done state, just visually hidden
+    // under the fancy SVG. .check({ force: true }) sets the value and
+    // dispatches input/change events without needing the input to be
+    // physically clickable on screen, which is exactly what Vue needs
+    // to react.
+    const native = item.locator('input[type="checkbox"]').first();
+    if ((await native.count()) > 0) {
+      await native.check({ force: true });
+      return;
+    }
+
+    // No native control — click the fancy wrapper as a fallback.
+    const fancy = item
       .locator(
         [
-          '.fancy-checkbox',
           'label:has(.fancy-checkbox__icon)',
+          '.fancy-checkbox',
           '.fancy-checkbox__icon',
-          'input[type="checkbox"]',
         ].join(', '),
       )
       .first();
-    await checkbox.click({ force: true });
+    await fancy.click({ force: true });
   }
 }
