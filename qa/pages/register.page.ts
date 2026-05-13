@@ -19,6 +19,7 @@ export class RegisterPage extends BasePage {
    */
   readonly submitButton: Locator;
   private readonly errorBanner: Locator;
+  private readonly loginLink: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -31,6 +32,13 @@ export class RegisterPage extends BasePage {
     this.submitButton = page.getByRole('button', { name: /create.*account|register|sign\s*up/i });
     this.errorBanner = page
       .locator('.message.danger, .notification.is-danger, [role="alert"]')
+      .first();
+    // Cross-page link/button taking the user from /register back to /login.
+    // Match either a link or a button to keep the contract resilient to
+    // markup changes.
+    this.loginLink = page
+      .getByRole('link', { name: /^\s*log\s*in\s*$/i })
+      .or(page.getByRole('button', { name: /^\s*log\s*in\s*$/i }))
       .first();
   }
 
@@ -68,5 +76,10 @@ export class RegisterPage extends BasePage {
       return (await this.errorBanner.innerText()).trim();
     }
     return null;
+  }
+
+  /** Click the "Login" link/button on the register page. */
+  async goToLogin(): Promise<void> {
+    await this.loginLink.click();
   }
 }

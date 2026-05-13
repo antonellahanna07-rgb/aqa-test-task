@@ -45,6 +45,15 @@ test.describe('Signup @smoke', () => {
     await expect(registerPage.submitButton).toBeDisabled();
   });
 
+  test('clicking the login button on the signup screen navigates to /login', async ({
+    page,
+    registerPage,
+  }) => {
+    await registerPage.goto();
+    await registerPage.goToLogin();
+    await expect(page).toHaveURL(/\/login/);
+  });
+
   test('the register form rejects an invalid email format', async ({ registerPage }) => {
     const user = UserFactory.build();
 
