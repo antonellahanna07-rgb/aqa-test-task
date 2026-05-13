@@ -23,8 +23,11 @@ export class ConfirmDialog extends BaseComponent {
         .filter({ hasText: /confirm|delete|are you sure|will be (deleted|removed)|do it/i })
         .first(),
     );
+    // Vikunja v2's confirm button reads "Do it!" (with exclamation).
+    // Allow the optional trailing punctuation so the regex still anchors
+    // the start/end and doesn't accidentally cross-match other buttons.
     this.confirmButton = this.root
-      .getByRole('button', { name: /^\s*(do it|delete|yes|confirm|ok|remove)\s*$/i })
+      .getByRole('button', { name: /^\s*(do\s*it!?|delete!?|yes!?|confirm!?|ok!?|remove!?)\s*$/i })
       .first();
     this.cancelButton = this.root
       .getByRole('button', { name: /^\s*(cancel|no)\s*$/i })

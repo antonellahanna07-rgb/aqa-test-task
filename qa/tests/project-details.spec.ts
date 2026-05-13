@@ -205,11 +205,11 @@ test.describe('Project details — edit and delete the project', () => {
     await details.goto();
     await details.actionsMenu.clickAction('Edit');
 
-    // The edit surface is either a modal or a settings page — both
-    // share the same semantic input (`name="projectTitle"`) and a
-    // Save/Update submit. Locate by attribute so we don't depend on
-    // the surrounding container.
-    const titleInput = page.locator('input[name="projectTitle"]').first();
+    // Vikunja v2's edit modal uses `<input id="title">` (no `name`
+    // attribute), while the new-project modal uses `name="projectTitle"`.
+    // Both expose a proper <label for="…">Title</label> association,
+    // so getByLabel is the one selector that works for either surface.
+    const titleInput = page.getByLabel(/^\s*title\s*$/i).first();
     await titleInput.waitFor({ state: 'visible' });
     await titleInput.fill(newTitle);
 
