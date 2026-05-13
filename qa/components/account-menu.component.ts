@@ -2,19 +2,36 @@ import { Locator, Page } from '@playwright/test';
 import { BaseComponent } from './base.component';
 
 /**
- * User/account dropdown in the top navbar — owns the menu trigger and the
- * actions inside it (Settings, Logout, …). Reused on every authenticated
+ * The set of entries Vikunja renders inside the account dropdown.
+ * Centralised so tests can iterate over them without hard-coding strings.
+ */
+export const ACCOUNT_MENU_ITEMS = [
+  'Settings',
+  'Keyboard shortcuts',
+  'About',
+  'Logout',
+] as const;
+export type AccountMenuItem = (typeof ACCOUNT_MENU_ITEMS)[number];
+
+/**
+ * User/account dropdown in the top navbar. Owns the menu trigger and
+ * every actionable entry inside the menu. Reused on every authenticated
  * screen.
+ *
+ * Items are exposed two ways:
+ *   - as individual readonly locators (`settingsItem`,
+ *     `keyboardShortcutsItem`, `aboutItem`, `logoutItem`) for direct
+ *     assertion or click
+ *   - through {@link menuItem} for parameterized iteration over
+ *     {@link ACCOUNT_MENU_ITEMS}
  */
 export class AccountMenu extends BaseComponent {
-  private readonly logoutItem: Locator;
-  private readonly settingsItem: Locator;
+  readonly settingsItem: Locator;
+  readonly keyboardShortcutsItem: Locator;
+  readonly aboutItem: Locator;
+  readonly logoutItem: Locator;
 
   constructor(page: Page) {
-    // Vikunja v2 renders the account menu trigger as a clickable wrapper
-    // (button or anchor) containing `<span class="username">…</span>`.
-    // We target the wrapper rather than the span so toBeVisible/click()
-    // hit the interactive element.
     super(
       page,
       page
@@ -29,25 +46,58 @@ export class AccountMenu extends BaseComponent {
         )
         .first(),
     );
-    this.logoutItem = page
-      .getByRole('button', { name: /log\s*out/i })
-      .or(page.getByRole('menuitem', { name: /log\s*out/i }))
-      .or(page.getByRole('link', { name: /log\s*out/i }))
-      .first();
-    this.settingsItem = page.getByRole('link', { name: /settings/i }).first();
+    this.settingsItem = AccountMenu.itemLocator(page, 'Settings');
+    this.keyboardShortcutsItem = AccountMenu.itemLocator(page, 'Keyboard shortcuts');
+    this.aboutItem = AccountMenu.itemLocator(page, 'About');
+    this.logoutItem = AccountMenu.itemLocator(page, 'Logout');
   }
 
+  /** Open the dropdown by clicking the trigger. */
   async open(): Promise<void> {
     await this.root.click();
   }
 
-  async logout(): Promise<void> {
-    await this.open();
-    await this.logoutItem.click();
+  /** Locator for a specific menu entry — used to iterate over ACCOUNT_MENU_ITEMS. */
+  menuItem(name: AccountMenuItem): Locator {
+    switch (name) {
+      case 'Settings':
+        return this.settingsItem;
+      case 'Keyboard shortcuts':
+        return this.keyboardShortcutsItem;
+      case 'About':
+        return this.aboutItem;
+      case 'Logout':
+        return this.logoutItem;
+    }
   }
 
-  async goToSettings(): Promise<void> {
+  /** Open the menu and click a specific entry. */
+  async clickItem(name: AccountMenuItem): Promise<void> {
     await this.open();
-    await this.settingsItem.click();
+    await this.menuItem(name).click();
+  }
+
+  /** Convenience: open the menu and click Logout. */
+  async logout(): Promise<void> {
+    await this.clickItem('Logout');
+  }
+
+  /** Convenience: open the menu and click Settings. */
+  async goToSettings(): Promise<void> {
+    await this.clickItem('Settings');
+  }
+
+  /**
+   * Match a menu entry by its accessible name. Vikunja v2 renders these
+   * as links/buttons in a dropdown appended to the document body (not
+   * scoped to the trigger), so we search at the page level.
+   */
+  private static itemLocator(page: Page, name: AccountMenuItem): Locator {
+    const re = new RegExp(`^\\s*${name.replace(/\s+/g, '\\s*')}\\s*$`, 'i');
+    return page
+      .getByRole('link', { name: re })
+      .or(page.getByRole('button', { name: re }))
+      .or(page.getByRole('menuitem', { name: re }))
+      .first();
   }
 }

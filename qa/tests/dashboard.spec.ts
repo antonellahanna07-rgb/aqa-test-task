@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures';
 import { SIDEBAR_MENU_ITEMS } from '../components/sidebar.component';
+import { ACCOUNT_MENU_ITEMS } from '../components/account-menu.component';
 
 /**
  * Dashboard coverage is split into three describes so a reader can read
@@ -50,6 +51,25 @@ test.describe('Dashboard — navbar items visible and clickable @smoke', () => {
       const target = dashboardPage.navbar[component].root;
       await expect(target).toBeVisible();
       await expect(target).toBeEnabled();
+    });
+  }
+});
+
+test.describe('Dashboard — account menu items visible and clickable @smoke', () => {
+  // Open the account dropdown once per test, then assert that each entry
+  // (Settings, Keyboard shortcuts, About, Logout) is rendered and
+  // accepts interaction. Parameterized so adding a new menu entry is a
+  // single-line change in ACCOUNT_MENU_ITEMS.
+  for (const item of ACCOUNT_MENU_ITEMS) {
+    test(`the account menu shows a "${item}" entry that is visible and clickable`, async ({
+      dashboardPage,
+    }) => {
+      await dashboardPage.goto();
+      await dashboardPage.navbar.account.open();
+
+      const entry = dashboardPage.navbar.account.menuItem(item);
+      await expect(entry).toBeVisible();
+      await expect(entry).toBeEnabled();
     });
   }
 });
