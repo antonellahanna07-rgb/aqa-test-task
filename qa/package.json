@@ -1,0 +1,32 @@
+{
+  "name": "vikunja-qa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TypeScript + Playwright QA framework for the Vikunja application (aqa-test-task).",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "PWDEBUG=1 playwright test",
+    "test:api": "playwright test --grep @api",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:auth": "playwright test tests/auth",
+    "test:projects": "playwright test tests/projects",
+    "test:tasks": "playwright test tests/tasks",
+    "test:local": "cross-env TEST_ENV=local playwright test",
+    "test:dev": "cross-env TEST_ENV=dev playwright test",
+    "test:staging": "cross-env TEST_ENV=staging playwright test",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen http://localhost:8080",
+    "lint": "tsc --noEmit",
+    "install:browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.5",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.4.7",
+    "typescript": "^5.7.2",
+    "zod": "^3.24.1"
+  }
+}
