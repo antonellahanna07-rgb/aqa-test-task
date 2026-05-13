@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures';
 import { ProjectFactory } from '../fixtures/factories';
 import { ProjectsPage } from '../pages/projects.page';
+import { ProjectDetailsPage } from '../pages/project-details.page';
 
 test.describe('Sidebar → Projects @smoke', () => {
   test('navigating to Projects via the sidebar lands on the projects route', async ({
@@ -39,18 +40,27 @@ test.describe('Projects — new-project trigger @smoke', () => {
 });
 
 test.describe('Projects — create via UI', () => {
-  test('a user can create a new project and see it in the list', async ({ page, api }) => {
+  test('creating a project lands on its details page and persists in the API', async ({
+    page,
+    api,
+  }) => {
     const data = ProjectFactory.build();
 
     const projects = new ProjectsPage(page);
     await projects.goto();
-    await projects.createProject({ title: data.title, description: data.description });
+    await projects.createProject({ title: data.title });
 
-    // UI assertion — the project appears somewhere on the page (sidebar
-    // list, projects list, or wherever Vikunja chooses to render it).
-    await expect.poll(async () => projects.hasProject(data.title)).toBe(true);
+    // Vikunja v2 auto-navigates to the new project's details page after
+    // creation — confirm via URL pattern.
+    await expect(page).toHaveURL(/\/projects\/\d+/);
 
-    // API assertion — and the project actually persisted server-side.
+    // The shared shell still renders on the details page, and the title
+    // heading reflects the project we just created.
+    const details = new ProjectDetailsPage(page);
+    await details.waitUntilLoaded();
+    await expect(details.projectTitleHeading).toContainText(data.title);
+
+    // API ground truth — and the project was actually persisted.
     await expect.poll(async () => (await api.projects.findByTitle(data.title))?.title).toBe(
       data.title,
     );
@@ -68,20 +78,39 @@ test.describe('Projects — create via UI', () => {
 
     for (const title of titles) {
       await projects.createProject({ title });
+      // After creation Vikunja lands on /projects/<id>. To open another
+      // creation modal we have to return to the list — click "Projects"
+      // in the sidebar.
+      await projects.sidebar.navigateTo('Projects');
+      await projects.waitUntilLoaded();
     }
 
-    // All three should be discoverable via the API.
+    // All three should be discoverable via API.
     await expect
       .poll(async () => {
         const all = await api.projects.list();
         return titles.every((t) => all.some((p) => p.title === t));
       })
       .toBe(true);
+  });
+});
 
-    // And all three should be visible on the projects page.
-    for (const title of titles) {
-      await expect.poll(async () => projects.hasProject(title)).toBe(true);
-    }
+test.describe('Project details — shell + items visible @smoke', () => {
+  test('after creation, the project details page shows sidebar, navbar, and title', async ({
+    page,
+    api,
+  }) => {
+    // Seed the project via API so this test focuses on the details-page
+    // contract, not the creation modal.
+    const seeded = await api.projects.create(ProjectFactory.build());
+
+    const details = new ProjectDetailsPage(page, seeded.id);
+    await details.goto();
+
+    await expect(details.sidebar.root).toBeVisible();
+    await expect(details.navbar.root).toBeVisible();
+    await expect(details.projectTitleHeading).toBeVisible();
+    await expect(details.projectTitleHeading).toContainText(seeded.title);
   });
 });
 

@@ -54,9 +54,16 @@ export class NewProjectModal extends BaseComponent {
   async fillForm(values: NewProjectValues): Promise<void> {
     await this.titleInput.fill(values.title);
     if (values.description !== undefined) {
-      await this.descriptionInput.fill(values.description).catch(() => {
-        /* description field is optional / not present on v2 */
-      });
+      // Short-circuit the description fill if the field isn't on screen
+      // — otherwise Playwright waits the full action timeout (15s) on a
+      // locator that will never resolve. v2 doesn't render a description
+      // input in the new-project modal at all.
+      const hasDescription = await this.descriptionInput
+        .isVisible({ timeout: 500 })
+        .catch(() => false);
+      if (hasDescription) {
+        await this.descriptionInput.fill(values.description);
+      }
     }
   }
 
