@@ -1,5 +1,21 @@
 import { test, expect } from '../fixtures';
 import { UserFactory } from '../fixtures/factories';
+import { LoginPage } from '../pages/login.page';
+import { ConfigManager } from '../config/manager';
+
+/**
+ * Decode the payload of a Vikunja JWT (URL-safe base64) and return the
+ * claims as an object. Vikunja signs with HS256, but we only need the
+ * payload here so signature verification isn't needed.
+ */
+function decodeJwtPayload(token: string): Record<string, unknown> {
+  const [, payloadB64] = token.split('.');
+  if (!payloadB64) throw new Error('Malformed JWT — no payload segment');
+  return JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf-8')) as Record<
+    string,
+    unknown
+  >;
+}
 
 test.describe('Login @smoke', () => {
   // These tests start unauthenticated even though the default context
@@ -64,6 +80,45 @@ test.describe('Login @smoke', () => {
     // ...and back out.
     await loginPage.stayLoggedInCheckbox.uncheck();
     await expect(loginPage.stayLoggedInCheckbox).not.toBeChecked();
+  });
+
+  test('checking "stay logged in" issues a longer-lived auth token', async ({
+    browser,
+    seededUser,
+  }) => {
+    // Log in twice in fresh contexts so each request issues an
+    // independent JWT, then compare the `exp` claim of both.
+    // This asserts the *backend* honored the persistent-session toggle
+    // — not just that the UI flipped a checkbox.
+    const cfg = ConfigManager.get();
+
+    async function loginAndReadExp(stayLoggedIn: boolean): Promise<number> {
+      const ctx = await browser.newContext({ baseURL: cfg.baseUrl });
+      const page = await ctx.newPage();
+      try {
+        const login = new LoginPage(page);
+        await login.goto();
+        if (stayLoggedIn) await login.stayLoggedInCheckbox.check();
+        await login.login(seededUser.username, seededUser.password);
+        await page.waitForURL((url) => !/\/login\/?$/.test(url.toString()));
+
+        const token = await page.evaluate(() => localStorage.getItem('token'));
+        if (!token) throw new Error('Expected a JWT in localStorage after login, found none.');
+
+        const payload = decodeJwtPayload(token);
+        if (typeof payload.exp !== 'number') {
+          throw new Error('JWT payload is missing a numeric `exp` claim.');
+        }
+        return payload.exp;
+      } finally {
+        await ctx.close();
+      }
+    }
+
+    const expWithFlag = await loginAndReadExp(true);
+    const expWithoutFlag = await loginAndReadExp(false);
+
+    expect(expWithFlag).toBeGreaterThan(expWithoutFlag);
   });
 
   test('clicking "forgot your password?" opens the password recovery flow', async ({
