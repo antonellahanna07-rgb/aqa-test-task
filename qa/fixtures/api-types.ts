@@ -40,3 +40,20 @@ export interface ProjectCreatePayload {
 export interface ProjectUpdatePayload extends Partial<ProjectCreatePayload> {
   is_archived?: boolean;
 }
+
+export interface Task {
+  id: number;
+  title: string;
+  description?: string;
+  done?: boolean;
+  project_id: number;
+  priority?: number;
+  due_date?: string;
+}
+
+export interface TaskCreatePayload {
+  title: string;
+  description?: string;
+  priority?: number;
+  due_date?: string;
+}

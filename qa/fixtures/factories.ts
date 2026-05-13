@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import { ProjectCreatePayload } from './api-types';
+import { ProjectCreatePayload, TaskCreatePayload } from './api-types';
 
 function tag(): string {
   const wid = process.env.TEST_WORKER_INDEX ?? '0';
@@ -39,6 +39,23 @@ export class ProjectFactory {
       description: overrides.description ?? `Auto-generated project ${t}`,
       hex_color: overrides.hex_color,
       parent_project_id: overrides.parent_project_id,
+    };
+  }
+}
+
+/**
+ * Generates unique task payloads scoped to a project. The title carries
+ * the same `tag()` suffix so multi-worker runs never collide on titles
+ * within or across projects.
+ */
+export class TaskFactory {
+  static build(overrides: Partial<TaskCreatePayload> = {}): TaskCreatePayload {
+    const t = tag();
+    return {
+      title: overrides.title ?? `QA Task ${t}`,
+      description: overrides.description,
+      priority: overrides.priority,
+      due_date: overrides.due_date,
     };
   }
 }

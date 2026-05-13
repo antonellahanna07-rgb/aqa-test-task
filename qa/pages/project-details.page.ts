@@ -1,5 +1,6 @@
 import { Locator, Page } from '@playwright/test';
 import { AuthenticatedPage } from './authenticated.page';
+import { TaskList } from '../components/task-list.component';
 
 /**
  * Vikunja v2 auto-routes to `/projects/<id>` after creating a project,
@@ -8,17 +9,16 @@ import { AuthenticatedPage } from './authenticated.page';
  * to a known project id via `goto()`.
  *
  * Inherits the authenticated shell (Sidebar + NavBar) from
- * {@link AuthenticatedPage} so the only thing this class owns is the
- * page-specific content: the project title and the task surface that
- * future task tests will hook into.
+ * {@link AuthenticatedPage} and composes a {@link TaskList} so tests
+ * can read/add tasks without reaching into raw locators.
  */
 export class ProjectDetailsPage extends AuthenticatedPage {
   protected readonly path: string;
 
   /** Heading that displays the project's title at the top of the page. */
   readonly projectTitleHeading: Locator;
-  /** Input for adding a new task — used by upcoming task-related tests. */
-  readonly newTaskInput: Locator;
+  /** Task list panel embedded on the page. */
+  readonly tasks: TaskList;
 
   /**
    * @param projectId  When provided, `goto()` navigates to
@@ -33,10 +33,7 @@ export class ProjectDetailsPage extends AuthenticatedPage {
     this.projectTitleHeading = page
       .locator('h1, h2, .project-title, [class*="project-title" i]')
       .first();
-    this.newTaskInput = page
-      .getByPlaceholder(/add a (new )?task/i)
-      .or(page.getByRole('textbox', { name: /task/i }))
-      .first();
+    this.tasks = new TaskList(page);
   }
 
   async waitUntilLoaded(): Promise<void> {
