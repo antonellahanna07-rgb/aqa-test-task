@@ -190,8 +190,8 @@ test.describe('Login @smoke', () => {
   });
 
   // One test per required field: fill the form with valid input, clear one
-  // field, click submit. The form should refuse to navigate AND surface an
-  // inline error scoped to that field.
+  // field, click submit. The form should surface an inline error scoped to
+  // that field AND refuse to navigate.
   for (const field of ['username', 'password'] as const) {
     test(`submitting with ${field} empty keeps the user on /login and shows a field-level error`, async ({
       page,
@@ -204,15 +204,11 @@ test.describe('Login @smoke', () => {
       await loginPage.clearField(field);
       await loginPage.submitForm();
 
-      // Form should refuse to submit.
-      await page
-        .waitForURL((url) => !/\/login\/?$/.test(url.toString()), { timeout: 3000 })
-        .catch(() => {
-          /* expected */
-        });
-      await expect(page).toHaveURL(/\/login/);
-      // And surface the inline error beneath the missing field.
+      // Field error appears synchronously after submit — assert it first
+      // (Playwright's toBeVisible polls automatically).
       await expect(loginPage.fieldError(field)).toBeVisible();
+      // And the form should not have navigated away from /login.
+      await expect(page).toHaveURL(/\/login/);
     });
   }
 
