@@ -284,3 +284,34 @@ Authentication cache is automatically refreshed when invalid, so manual cleanup 
 ### UI selector failures
 
 If a future Vikunja update changes the UI structure, selectors are mostly centralized inside the `components/` folder, making updates easier.
+
+---
+
+# 9. Helpful Commands
+
+Quick-reference cheatsheet for the commands you'll reach for most often during debugging.
+
+### Run headed mode
+
+```bash
+npm test -- --headed --workers=1
+```
+
+### Open inspector
+
+```bash
+PWDEBUG=1 npm test
+```
+
+### Open Playwright report
+
+```bash
+npm run report
+```
+
+The report includes:
+
+* traces
+* screenshots
+* videos for failed tests
+* execution timeline
