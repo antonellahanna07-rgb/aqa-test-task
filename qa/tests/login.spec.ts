@@ -6,34 +6,23 @@ test.describe('Login @smoke', () => {
   // carries the worker's storageState.
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('a registered user can log in via the UI', async ({
-    page,
-    loginPage,
-    dashboardPage,
-    seededUser,
-  }) => {
-    await loginPage.goto();
-    await loginPage.login(seededUser.username, seededUser.password);
+  // Vikunja v2's identifier field accepts either a username or an email.
+  // Parameterize over both paths so each is an explicit, named test case
+  // rather than relying on a generic "logs in via the UI" wording.
+  for (const identifier of ['username', 'email'] as const) {
+    test(`a registered user can log in using their ${identifier}`, async ({
+      page,
+      loginPage,
+      dashboardPage,
+      seededUser,
+    }) => {
+      await loginPage.goto();
+      await loginPage.login(seededUser[identifier], seededUser.password);
 
-    await page.waitForURL((url) => !/\/login$/.test(url.toString()));
-    await dashboardPage.waitUntilLoaded();
-  });
-
-  test('a registered user can log in using their email instead of their username', async ({
-    page,
-    loginPage,
-    dashboardPage,
-    seededUser,
-  }) => {
-    // Vikunja v2's identifier field accepts either a username or an email,
-    // so a user who registered with an email should be able to sign in
-    // with it interchangeably.
-    await loginPage.goto();
-    await loginPage.login(seededUser.email, seededUser.password);
-
-    await page.waitForURL((url) => !/\/login$/.test(url.toString()));
-    await dashboardPage.waitUntilLoaded();
-  });
+      await page.waitForURL((url) => !/\/login$/.test(url.toString()));
+      await dashboardPage.waitUntilLoaded();
+    });
+  }
 
   test('login fails with the wrong password', async ({ loginPage, seededUser }) => {
     await loginPage.goto();
