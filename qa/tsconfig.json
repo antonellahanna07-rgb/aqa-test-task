@@ -17,14 +17,11 @@
     "baseUrl": ".",
     "paths": {
       "@config/*": ["config/*"],
-      "@api/*": ["src/api/*"],
-      "@components/*": ["src/components/*"],
-      "@pages/*": ["src/pages/*"],
-      "@fixtures/*": ["src/fixtures/*"],
-      "@factories/*": ["src/factories/*"],
-      "@utils/*": ["src/utils/*"]
+      "@components/*": ["components/*"],
+      "@pages/*": ["pages/*"],
+      "@fixtures/*": ["fixtures/*"]
     }
   },
-  "include": ["src/**/*", "tests/**/*", "config/**/*", "playwright.config.ts"],
+  "include": ["components/**/*", "config/**/*", "fixtures/**/*", "pages/**/*", "tests/**/*", "playwright.config.ts"],
   "exclude": ["node_modules", "dist", "test-results", "playwright-report"]
 }

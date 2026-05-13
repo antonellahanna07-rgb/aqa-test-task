@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import * as path from 'path';
-import { ConfigManager } from './config/ConfigManager';
+import { ConfigManager } from './config/manager';
 
 const cfg = ConfigManager.load();
 
@@ -10,7 +10,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? Math.max(cfg.execution.retries, 1) : cfg.execution.retries,
-  workers: process.env.CI ? cfg.execution.workers : cfg.execution.workers,
+  workers: cfg.execution.workers,
   timeout: 60_000,
   expect: { timeout: cfg.execution.expectTimeoutMs },
   reporter: [
@@ -18,8 +18,6 @@ export default defineConfig({
     ['html', { outputFolder: cfg.artifacts.reportDir, open: 'never' }],
     ['junit', { outputFile: path.join(cfg.artifacts.resultsDir, 'junit.xml') }],
   ],
-  globalSetup: require.resolve('./tests/global/global-setup'),
-  globalTeardown: require.resolve('./tests/global/global-teardown'),
   use: {
     baseURL: cfg.baseUrl,
     headless: cfg.execution.headless,
@@ -39,7 +37,7 @@ export default defineConfig({
     },
     {
       name: 'api',
-      testMatch: /.*\.api\.spec\.ts/,
+      testMatch: /api\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
   ],
