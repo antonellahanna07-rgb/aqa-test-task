@@ -66,6 +66,57 @@ async function provisionWorkerUser(workerIndex: number): Promise<UserSpec> {
 }
 
 /* ------------------------------------------------------------------ */
+/*  API-only authentication                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Build an authenticated `storageState` file using ONLY the API — no UI
+ * involved. We register the worker user (or load the cached one), call
+ * /login to get a JWT, then write that JWT directly into the localStorage
+ * entry that Vikunja's SPA reads on boot. The browser context starts
+ * already logged in, with zero risk of a LoginPage selector regression
+ * breaking dashboard tests.
+ *
+ * The shape of the file matches Playwright's `storageState` contract so
+ * it can be passed straight to `browser.newContext({ storageState })`.
+ */
+async function buildAuthenticatedStorageState(workerIndex: number): Promise<string> {
+  ensureStorageDir();
+  const stateFile = workerStatePath(workerIndex);
+  if (fs.existsSync(stateFile)) return stateFile;
+
+  const cfg = ConfigManager.get();
+  const user = await provisionWorkerUser(workerIndex);
+
+  const client = new ApiClient({ baseUrl: cfg.apiBaseUrl });
+  let token: string;
+  try {
+    const auth = await client.loginAs(user.username, user.password);
+    token = auth.token;
+  } finally {
+    await client.dispose();
+  }
+
+  const origin = new URL(cfg.baseUrl).origin;
+  const storageState = {
+    cookies: [],
+    origins: [
+      {
+        origin,
+        localStorage: [
+          { name: 'token', value: token },
+          // Vikunja's SPA reads API_URL from localStorage on cold start.
+          { name: 'API_URL', value: cfg.apiBaseUrl },
+        ],
+      },
+    ],
+  };
+
+  fs.writeFileSync(stateFile, JSON.stringify(storageState), 'utf-8');
+  return stateFile;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Fixture types                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -106,7 +157,7 @@ type WorkerFixtures = {
  *   - `loginPage`, etc.     →  page objects, scoped to the test's page
  *   - `context` honors test.use({ storageState }) — tests that ask for an
  *     empty state get one with zero worker-side preconditions; everything
- *     else falls through to a worker-authenticated context.
+ *     else falls through to a worker-authenticated context built via API.
  */
 export const test = base.extend<Fixtures, WorkerFixtures>({
   workerApi: [
@@ -129,46 +180,24 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     { scope: 'worker' },
   ],
 
-  // Custom context: respects test.use({ storageState }), falling back to
-  // a per-worker authenticated state when the test didn't override it.
-  // The decoupling matters — signup and login specs need an empty context
-  // and must NOT pay for worker auth setup.
+  // Custom context:
+  //   - if test.use({ storageState }) sets an explicit state (typically
+  //     `{ cookies: [], origins: [] }` for the unauthenticated auth
+  //     specs), honor it verbatim.
+  //   - otherwise build an API-authenticated state by injecting the JWT
+  //     into localStorage. NO UI login is involved — so dashboard tests
+  //     never depend on the LoginPage selectors being correct.
   context: async ({ browser, storageState }, use, testInfo) => {
     const cfg = ConfigManager.get();
 
     if (storageState !== undefined) {
-      // The test opted in to a specific storage state (typically the
-      // empty `{ cookies: [], origins: [] }` for auth specs).
       const ctx = await browser.newContext({ baseURL: cfg.baseUrl, storageState });
       await use(ctx);
       await ctx.close();
       return;
     }
 
-    // Default: build an authenticated context lazily.
-    ensureStorageDir();
-    const stateFile = workerStatePath(testInfo.workerIndex);
-
-    if (!fs.existsSync(stateFile)) {
-      const user = await provisionWorkerUser(testInfo.workerIndex);
-      const tmpCtx = await browser.newContext({ baseURL: cfg.baseUrl });
-      const page = await tmpCtx.newPage();
-      try {
-        const login = new LoginPage(page);
-        await login.goto();
-        await login.login(user.username, user.password);
-        // Fail loudly if the UI login didn't actually leave /login —
-        // a silent failure here would save an empty storageState and
-        // make every downstream test look like a selector bug.
-        await page.waitForURL((url) => !/\/login\/?$/.test(url.toString()), {
-          timeout: 15_000,
-        });
-        await tmpCtx.storageState({ path: stateFile });
-      } finally {
-        await tmpCtx.close();
-      }
-    }
-
+    const stateFile = await buildAuthenticatedStorageState(testInfo.workerIndex);
     const ctx = await browser.newContext({
       baseURL: cfg.baseUrl,
       storageState: stateFile,
