@@ -11,11 +11,14 @@ export class LoginPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    this.username = page.getByLabel(/username/i).or(page.getByPlaceholder(/username/i)).first();
-    this.password = page.getByLabel(/password/i).or(page.getByPlaceholder(/password/i)).first();
-    this.submit = page.getByRole('button', { name: /log\s*in/i });
+    // Vikunja v2 exposes inputs by accessible role/name (the actual label
+    // text is "Username Or Email Address" / "Password"), so we match on
+    // role rather than relying on <label for=...> associations.
+    this.username = page.getByRole('textbox', { name: /username|e-?mail/i });
+    this.password = page.getByRole('textbox', { name: /^\s*password\s*$/i });
+    this.submit = page.getByRole('button', { name: /^\s*log\s*in\s*$/i });
     this.errorBanner = page.locator('.notification.is-danger, [role="alert"]').first();
-    this.registerLink = page.getByRole('link', { name: /create.*account|register|sign up/i });
+    this.registerLink = page.getByRole('link', { name: /create.*account|register|sign\s*up/i });
   }
 
   async waitUntilLoaded(): Promise<void> {

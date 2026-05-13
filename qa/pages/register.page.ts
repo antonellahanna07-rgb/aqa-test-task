@@ -12,14 +12,15 @@ export class RegisterPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    this.username = page.getByLabel(/username/i).or(page.getByPlaceholder(/username/i)).first();
-    this.email = page.getByLabel(/e-?mail/i).or(page.getByPlaceholder(/e-?mail/i)).first();
-    this.password = page.getByLabel(/^password$/i).or(page.getByPlaceholder(/^password$/i)).first();
-    this.passwordConfirm = page
-      .getByLabel(/confirm|repeat/i)
-      .or(page.getByPlaceholder(/confirm|repeat/i))
-      .first();
-    this.submit = page.getByRole('button', { name: /create.*account|register|sign up/i });
+    // Match the same pattern Vikunja v2 uses on the login page — accessible
+    // names rather than <label for=...> associations.
+    this.username = page.getByRole('textbox', { name: /^\s*username\s*$/i });
+    this.email = page.getByRole('textbox', { name: /e-?mail/i });
+    this.password = page.getByRole('textbox', { name: /^\s*password\s*$/i });
+    this.passwordConfirm = page.getByRole('textbox', {
+      name: /confirm.*password|password.*confirm|repeat.*password/i,
+    });
+    this.submit = page.getByRole('button', { name: /create.*account|register|sign\s*up/i });
     this.errorBanner = page.locator('.notification.is-danger, [role="alert"]').first();
   }
 

@@ -105,16 +105,21 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       // Cold-start: drive UI login once per worker to capture cookies/localStorage.
       const tmpCtx: BrowserContext = await browser.newContext({ baseURL: cfg.baseUrl });
       const page = await tmpCtx.newPage();
-      const login = new LoginPage(page);
-      await login.goto();
-      await login.login(workerUser.username, workerUser.password);
-      await page
-        .waitForURL((url) => !/\/login$/.test(url.toString()), { timeout: 15_000 })
-        .catch(() => {
-          /* some builds land directly on `/` */
+      try {
+        const login = new LoginPage(page);
+        await login.goto();
+        await login.login(workerUser.username, workerUser.password);
+        // Fail loudly if the UI login didn't actually leave /login — a
+        // silent failure here would save an empty storageState and make
+        // every downstream test look like a selector bug instead of an
+        // auth bug.
+        await page.waitForURL((url) => !/\/login\/?$/.test(url.toString()), {
+          timeout: 15_000,
         });
-      await tmpCtx.storageState({ path: statePath });
-      await tmpCtx.close();
+        await tmpCtx.storageState({ path: statePath });
+      } finally {
+        await tmpCtx.close();
+      }
     }
 
     const ctx = await browser.newContext({
