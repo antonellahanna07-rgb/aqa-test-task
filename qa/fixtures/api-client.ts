@@ -127,21 +127,27 @@ export class BaseApiClient {
 
 export class UsersApi extends BaseApiClient {
   /**
-   * Register a user. SQLite + Vikunja occasionally returns a 5xx when several
-   * workers race on /register at boot — we retry with light backoff so the
-   * harness keeps moving instead of failing the whole suite.
+   * Register a user. SQLite + Vikunja returns a 5xx (or rate-limits with
+   * 429) when several workers race on /register concurrently. Retry with
+   * exponential backoff so the harness keeps moving instead of failing
+   * the whole suite on a transient blip.
+   *
+   * Total worst-case wait: ~15s across 6 attempts.
    */
   async register(payload: RegisterPayload): Promise<User> {
     const transient = /\b5\d\d\b|\b429\b/;
+    const backoffsMs = [0, 500, 1000, 2000, 4000, 8000];
     let lastError: unknown;
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 0; attempt < backoffsMs.length; attempt++) {
+      if (backoffsMs[attempt] > 0) {
+        await new Promise((r) => setTimeout(r, backoffsMs[attempt]));
+      }
       try {
         return await this.post<User>('/register', payload);
       } catch (err) {
         lastError = err;
         const msg = err instanceof Error ? err.message : String(err);
         if (!transient.test(msg)) throw err;
-        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
       }
     }
     throw lastError instanceof Error ? lastError : new Error('register failed after retries');

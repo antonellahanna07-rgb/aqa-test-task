@@ -56,7 +56,10 @@ const DEFAULTS = {
   headless: true,
   slowMo: 0,
   workers: 4,
-  retries: 0,
+  // One retry by default so a single transient Vikunja blip
+  // (SQLite contention on /register, etc.) doesn't fail the suite.
+  // Override via RETRIES env var when investigating flakiness.
+  retries: 1,
   trace: 'on-first-retry' as const,
   actionTimeoutMs: 15_000,
   navigationTimeoutMs: 30_000,
