@@ -21,7 +21,9 @@ export class RegisterPage extends BasePage {
       name: /confirm.*password|password.*confirm|repeat.*password/i,
     });
     this.submit = page.getByRole('button', { name: /create.*account|register|sign\s*up/i });
-    this.errorBanner = page.locator('.notification.is-danger, [role="alert"]').first();
+    this.errorBanner = page
+      .locator('.message.danger, .notification.is-danger, [role="alert"]')
+      .first();
   }
 
   async waitUntilLoaded(): Promise<void> {

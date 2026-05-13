@@ -17,7 +17,9 @@ export class LoginPage extends BasePage {
     this.username = page.getByRole('textbox', { name: /username|e-?mail/i });
     this.password = page.getByRole('textbox', { name: /^\s*password\s*$/i });
     this.submit = page.getByRole('button', { name: /^\s*log\s*in\s*$/i });
-    this.errorBanner = page.locator('.notification.is-danger, [role="alert"]').first();
+    this.errorBanner = page
+      .locator('.message.danger, .notification.is-danger, [role="alert"]')
+      .first();
     this.registerLink = page.getByRole('link', { name: /create.*account|register|sign\s*up/i });
   }
 
