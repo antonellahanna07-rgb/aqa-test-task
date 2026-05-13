@@ -67,9 +67,17 @@ export class TaskList extends BaseComponent {
     }
   }
 
-  /** Locator for a task by its visible title. */
+  /**
+   * Locator for a task by its visible title.
+   *
+   * Vikunja v2's task rows are plain `<div>`s with no `task-item` /
+   * `single-task` class hooks, so an item-class scoped lookup misses
+   * them. Use the title text directly — task titles are guaranteed
+   * unique by {@link TaskFactory} (timestamp + worker index + random
+   * hex), so a page-wide text match resolves to exactly the new row.
+   */
   taskByTitle(title: string): Locator {
-    return this.items.filter({ hasText: title }).first();
+    return this.page.getByText(title, { exact: false }).first();
   }
 
   /**
@@ -78,11 +86,11 @@ export class TaskList extends BaseComponent {
    * on the build) — either way the title element receives the click.
    */
   async openTask(title: string): Promise<void> {
-    await this.page.getByText(title, { exact: false }).first().click();
+    await this.taskByTitle(title).click();
   }
 
   async hasTask(title: string): Promise<boolean> {
-    return (await this.taskByTitle(title).count()) > 0;
+    return (await this.page.getByText(title, { exact: false }).count()) > 0;
   }
 
   async count(): Promise<number> {
