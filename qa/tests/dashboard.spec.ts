@@ -1,7 +1,21 @@
 import { test, expect } from '../fixtures';
 import { SIDEBAR_MENU_ITEMS } from '../components/sidebar.component';
 
-test.describe('Dashboard — visible items @smoke', () => {
+/**
+ * Dashboard coverage is split into three describes so a reader can read
+ * the report and immediately see which dimension regressed:
+ *
+ *   1. Shell visibility    — sidebar + navbar containers are mounted
+ *   2. Items are visible + clickable — every sidebar menu entry and every
+ *      navbar sub-component (Search, Notifications, AccountMenu,
+ *      HamburgerMenu) renders and accepts interaction
+ *   3. Interactive actions — clicking the trigger actually opens the
+ *      expected affordance
+ */
+
+const NAVBAR_COMPONENTS = ['search', 'notifications', 'account', 'hamburger'] as const;
+
+test.describe('Dashboard — shell visibility @smoke', () => {
   test('the sidebar is visible', async ({ dashboardPage }) => {
     await dashboardPage.goto();
     expect(await dashboardPage.sidebar.isVisible()).toBe(true);
@@ -11,28 +25,36 @@ test.describe('Dashboard — visible items @smoke', () => {
     await dashboardPage.goto();
     expect(await dashboardPage.navbar.isVisible()).toBe(true);
   });
+});
 
-  // Each top-bar sub-component is its own assertion so a single missing
-  // affordance shows up as a focused failure rather than getting hidden
-  // inside a generic "navbar visible" test.
-  for (const component of ['search', 'notifications', 'account', 'hamburger'] as const) {
-    test(`the navbar's ${component} affordance is visible`, async ({ dashboardPage }) => {
-      await dashboardPage.goto();
-      expect(await dashboardPage.navbar[component].isVisible()).toBe(true);
-    });
-  }
-
-  // Each sidebar menu entry. Parameterized so adding a new menu item is
-  // a single-line change in SIDEBAR_MENU_ITEMS.
+test.describe('Dashboard — sidebar items visible and clickable @smoke', () => {
   for (const item of SIDEBAR_MENU_ITEMS) {
-    test(`the "${item}" menu entry is visible in the sidebar`, async ({ dashboardPage }) => {
+    test(`the "${item}" sidebar entry is visible and clickable`, async ({ dashboardPage }) => {
       await dashboardPage.goto();
-      await expect(dashboardPage.sidebar.menuItem(item)).toBeVisible();
+      const entry = dashboardPage.sidebar.menuItem(item);
+      await expect(entry).toBeVisible();
+      // toBeEnabled covers: not disabled, not aria-disabled, not blocked
+      // by pointer-events: none. Combined with toBeVisible this is the
+      // canonical "clickable" assertion.
+      await expect(entry).toBeEnabled();
     });
   }
 });
 
-test.describe('Dashboard — interactive components', () => {
+test.describe('Dashboard — navbar items visible and clickable @smoke', () => {
+  for (const component of NAVBAR_COMPONENTS) {
+    test(`the navbar's ${component} affordance is visible and clickable`, async ({
+      dashboardPage,
+    }) => {
+      await dashboardPage.goto();
+      const target = dashboardPage.navbar[component].root;
+      await expect(target).toBeVisible();
+      await expect(target).toBeEnabled();
+    });
+  }
+});
+
+test.describe('Dashboard — interactive actions', () => {
   test('clicking the account menu opens it', async ({ page, dashboardPage }) => {
     await dashboardPage.goto();
     await dashboardPage.navbar.account.open();
@@ -44,7 +66,7 @@ test.describe('Dashboard — interactive components', () => {
   test('clicking the hamburger toggles the sidebar without errors', async ({ dashboardPage }) => {
     await dashboardPage.goto();
     // We don't assert the visual collapse (theme/animation-dependent);
-    // we assert the click is wired and the sidebar is still in the DOM.
+    // we assert the click is wired and the sidebar is still mounted.
     await dashboardPage.navbar.hamburger.toggle();
     await expect(dashboardPage.sidebar.root).toBeAttached();
   });
