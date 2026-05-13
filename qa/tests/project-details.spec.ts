@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures';
 import { ProjectFactory, TaskFactory } from '../fixtures/factories';
 import { ProjectDetailsPage } from '../pages/project-details.page';
+import { ProjectsPage } from '../pages/projects.page';
 import { TaskDetailsPage } from '../pages/task-details.page';
 import type { Project } from '../fixtures/api-types';
 
@@ -197,7 +198,10 @@ test.describe('Project details — done state reflected in views', () => {
 });
 
 test.describe('Project details — edit and delete the project', () => {
-  test('a user can edit a project title from the 3-dots menu', async ({ page, api }) => {
+  test('editing a project title is reflected on the details page, /projects, and the API', async ({
+    page,
+    api,
+  }) => {
     const project = await useFreshProject(api);
     const newTitle = `${project.title} (edited)`;
 
@@ -217,9 +221,21 @@ test.describe('Project details — edit and delete the project', () => {
 
     // API ground truth: the rename actually persisted.
     await expect.poll(async () => (await api.projects.getById(project.id)).title).toBe(newTitle);
+
+    // UI: the project details page now shows the new title in its
+    // heading (proves the SPA picked up the change in place).
+    await expect(details.projectTitleHeading).toContainText(newTitle);
+
+    // UI: the new title also surfaces on the projects list.
+    const projects = new ProjectsPage(page);
+    await projects.goto();
+    await expect.poll(async () => projects.hasProject(newTitle)).toBe(true);
   });
 
-  test('a user can delete a project from the 3-dots menu', async ({ page, api }) => {
+  test('deleting a project removes it from /projects and from the API', async ({
+    page,
+    api,
+  }) => {
     const project = await useFreshProject(api);
 
     const details = new ProjectDetailsPage(page, project.id);
@@ -236,6 +252,11 @@ test.describe('Project details — edit and delete the project', () => {
         return all.some((p) => p.id === project.id);
       })
       .toBe(false);
+
+    // UI: the project is no longer rendered on the projects list.
+    const projects = new ProjectsPage(page);
+    await projects.goto();
+    await expect.poll(async () => projects.hasProject(project.title)).toBe(false);
   });
 });
 
