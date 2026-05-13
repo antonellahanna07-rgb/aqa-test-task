@@ -70,29 +70,116 @@ async function provisionWorkerUser(workerIndex: number): Promise<UserSpec> {
 /* ------------------------------------------------------------------ */
 
 /**
- * Build an authenticated `storageState` file using ONLY the API — no UI
- * involved. We register the worker user (or load the cached one), call
- * /login to get a JWT, then write that JWT directly into the localStorage
- * entry that Vikunja's SPA reads on boot. The browser context starts
- * already logged in, with zero risk of a LoginPage selector regression
- * breaking dashboard tests.
+ * Workers whose cached auth has been validated against the live server
+ * in this process. Cleared per-worker (each worker is its own Node
+ * process), so the validation happens at most once per worker per run.
+ */
+const validatedWorkers = new Set<number>();
+
+/**
+ * Read a Playwright storageState file and pull the token out of the
+ * first origin's localStorage. Returns undefined if the file is
+ * malformed or the token isn't there.
+ */
+function readTokenFromState(stateFile: string): string | undefined {
+  try {
+    const raw = fs.readFileSync(stateFile, 'utf-8');
+    const state = JSON.parse(raw) as {
+      origins?: Array<{ localStorage?: Array<{ name: string; value: string }> }>;
+    };
+    return state.origins?.[0]?.localStorage?.find((kv) => kv.name === 'token')?.value;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Decode the JWT payload (URL-safe base64) without verifying the
+ * signature. Vikunja signs with HS256; we just need the `exp` claim.
+ */
+function jwtIsFresh(token: string): boolean {
+  try {
+    const payload = JSON.parse(
+      Buffer.from(token.split('.')[1], 'base64url').toString('utf-8'),
+    ) as { exp?: number };
+    return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now() + 60_000;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Hit `/user` with the cached token. If Vikunja accepts it, the cached
+ * state is still authoritative; if not, the user was deleted, the JWT
+ * secret rotated, or the DB was wiped — any of which means we have to
+ * re-provision.
+ */
+async function tokenWorks(token: string): Promise<boolean> {
+  const cfg = ConfigManager.get();
+  const client = new ApiClient({ baseUrl: cfg.apiBaseUrl, token });
+  try {
+    await client.users.me();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await client.dispose();
+  }
+}
+
+/**
+ * Build (or reuse) an authenticated `storageState` file. The flow:
  *
- * The shape of the file matches Playwright's `storageState` contract so
- * it can be passed straight to `browser.newContext({ storageState })`.
+ *   1. If we've already validated this worker's cache in this process,
+ *      return the file path immediately.
+ *   2. If a cache file exists, check JWT freshness locally, then ping
+ *      `/user` to confirm Vikunja still honors the token.
+ *   3. If anything looks stale, wipe both files and re-provision: API
+ *      register + API login + write a fresh storageState.
+ *
+ * The result is a storageState whose localStorage carries Vikunja's
+ * `token` and `API_URL` so a fresh browser context boots already
+ * authenticated — zero UI login involved.
  */
 async function buildAuthenticatedStorageState(workerIndex: number): Promise<string> {
   ensureStorageDir();
   const stateFile = workerStatePath(workerIndex);
-  if (fs.existsSync(stateFile)) return stateFile;
+
+  if (validatedWorkers.has(workerIndex) && fs.existsSync(stateFile)) {
+    return stateFile;
+  }
+
+  if (fs.existsSync(stateFile)) {
+    const cachedToken = readTokenFromState(stateFile);
+    if (cachedToken && jwtIsFresh(cachedToken) && (await tokenWorks(cachedToken))) {
+      validatedWorkers.add(workerIndex);
+      return stateFile;
+    }
+    // Stale — drop both files and rebuild.
+    fs.unlinkSync(stateFile);
+    const userFile = workerUserPath(workerIndex);
+    if (fs.existsSync(userFile)) fs.unlinkSync(userFile);
+  }
 
   const cfg = ConfigManager.get();
-  const user = await provisionWorkerUser(workerIndex);
+  let user = await provisionWorkerUser(workerIndex);
 
   const client = new ApiClient({ baseUrl: cfg.apiBaseUrl });
   let token: string;
   try {
-    const auth = await client.loginAs(user.username, user.password);
-    token = auth.token;
+    try {
+      const auth = await client.loginAs(user.username, user.password);
+      token = auth.token;
+    } catch {
+      // The cached user file points to credentials Vikunja no longer
+      // recognises (the DB was wiped, the user was deleted, etc.). Wipe
+      // the cached user and re-register before retrying once.
+      const userFile = workerUserPath(workerIndex);
+      if (fs.existsSync(userFile)) fs.unlinkSync(userFile);
+      user = await provisionWorkerUser(workerIndex);
+      const auth = await client.loginAs(user.username, user.password);
+      token = auth.token;
+    }
   } finally {
     await client.dispose();
   }
@@ -113,6 +200,7 @@ async function buildAuthenticatedStorageState(workerIndex: number): Promise<stri
   };
 
   fs.writeFileSync(stateFile, JSON.stringify(storageState), 'utf-8');
+  validatedWorkers.add(workerIndex);
   return stateFile;
 }
 
