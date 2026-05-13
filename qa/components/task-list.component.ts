@@ -81,28 +81,34 @@ export class TaskList extends BaseComponent {
   }
 
   /**
-   * Toggle a task's done state via its row checkbox. Vikunja v2 renders
-   * a `<input type="checkbox">` next to each task title; some builds
-   * use a styled control with an aria-label. Try the native input
-   * first, then fall back.
+   * Toggle a task's done state by clicking its row checkbox.
+   *
+   * Vikunja v2 doesn't use a native `<input type="checkbox">` — it
+   * renders a custom "fancy checkbox": an `<svg class="fancy-checkbox__icon">`
+   * inside a clickable wrapper (label or div). We target the wrapper
+   * when it exists, falling back to the SVG itself.
+   *
+   * A native-checkbox fallback is kept so future Vikunja builds (or
+   * other apps that reuse this component) work without changes.
    */
   async markDone(title: string): Promise<void> {
     const item = this.taskByTitle(title);
-    const checkbox = item.locator('input[type="checkbox"]').first();
-    if (await checkbox.isVisible({ timeout: 500 }).catch(() => false)) {
-      await checkbox.check();
+
+    const nativeCheckbox = item.locator('input[type="checkbox"]').first();
+    if (await nativeCheckbox.isVisible({ timeout: 500 }).catch(() => false)) {
+      await nativeCheckbox.check();
       return;
     }
-    await item
+
+    const fancyCheckbox = item
       .locator(
         [
-          '[aria-label*="done" i]',
-          '[aria-label*="complete" i]',
-          '.done',
-          '.task-checkbox',
+          '.fancy-checkbox',
+          'label:has(.fancy-checkbox__icon)',
+          '.fancy-checkbox__icon',
         ].join(', '),
       )
-      .first()
-      .click();
+      .first();
+    await fancyCheckbox.click();
   }
 }
