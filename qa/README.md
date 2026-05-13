@@ -182,8 +182,10 @@ Implemented in [fixtures/index.ts](fixtures/index.ts):
   with `Date.now() + workerIndex + random hex`).
 - **Storage-state reuse**: the `context` fixture is overridden so every test
   context starts already authenticated via a stored `storageState` JSON.
-- **Multiple Playwright projects** in `playwright.config.ts` (`chromium`,
-  `api`) — the `api` project is filename-scoped to `api.spec.ts`.
+- **Single chromium project** in `playwright.config.ts` — API and UI
+  tests share fixtures, so a separate project would just double-run
+  `api.spec.ts`. Filtering by tag (`--grep @api`) is the canonical way
+  to run the API subset.
 - **Reporters**: `list` (CLI), `html` (interactive report), `junit` (CI).
 - **Tags**: `@smoke` and `@api` enable focused runs without touching the
   config (`npm run test:smoke`, `npm run test:api`).

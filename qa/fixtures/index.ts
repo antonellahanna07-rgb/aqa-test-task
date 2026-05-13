@@ -80,6 +80,12 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       if (fs.existsSync(userPath)) {
         user = JSON.parse(fs.readFileSync(userPath, 'utf-8')) as UserSpec;
       } else {
+        // Stagger concurrent worker boots so we don't all POST /register
+        // in the same millisecond — Vikunja + SQLite occasionally 5xx's
+        // under that contention, and rate limiters trip on parallel bursts.
+        if (workerInfo.workerIndex > 0) {
+          await new Promise((r) => setTimeout(r, workerInfo.workerIndex * 400));
+        }
         user = UserFactory.build();
         await workerApi.users.register(user);
         fs.writeFileSync(userPath, JSON.stringify(user), 'utf-8');
@@ -132,12 +138,15 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     await use(user);
   },
 
-  api: async ({ seededUser }, use) => {
-    const cfg = ConfigManager.get();
-    const client = new ApiClient({ baseUrl: cfg.apiBaseUrl });
-    await client.loginAs(seededUser.username, seededUser.password);
-    await use(client);
-    await client.dispose();
+  // `api` reuses the worker's already-authenticated client instead of
+  // registering a fresh user per test. That keeps register traffic to ~1
+  // call per worker (instead of 1 per test), which matters when the app is
+  // running on SQLite or behind a rate limiter.
+  api: async ({ workerApi, workerUser }, use) => {
+    // workerUser is destructured to force the dependency: it guarantees
+    // workerApi is registered + logged in before the test starts.
+    void workerUser;
+    await use(workerApi);
   },
 
   loginPage: async ({ page }, use) => {
