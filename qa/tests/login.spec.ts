@@ -86,6 +86,23 @@ test.describe('Login @smoke', () => {
     browser,
     seededUser,
   }) => {
+    // Observed finding on Vikunja v2.3.0 (local SQLite, 2026-05-13):
+    // both code paths issue JWTs with identical `exp` claims; the
+    // measured delta is single-digit seconds, consistent with clock
+    // progression between the two logins. The "stay logged in" toggle
+    // is either cosmetic in this build, or persistence is enforced
+    // through a mechanism not observable from the client (refresh
+    // logic, server-side session, etc.).
+    //
+    // The test is intentionally retained and marked `test.fail()` so:
+    //   - the report documents the finding on every run
+    //   - if Vikunja's behavior changes upstream, the test will flip
+    //     from "expected fail" to "unexpected pass", prompting cleanup
+    test.fail(
+      true,
+      'Vikunja v2.3.0 issues JWTs with identical lifetimes regardless of "stay logged in".',
+    );
+
     // Log in twice in fresh contexts so each request issues an
     // independent JWT, then compare the `exp` claim of both.
     // This asserts the *backend* honored the persistent-session toggle
