@@ -92,31 +92,30 @@ export class TaskList extends BaseComponent {
    * The plain `input[type="checkbox"]` fallback is kept for other apps
    * that reuse this component with a stock control.
    */
+  /**
+   * Toggle a task's done state by clicking the checkbox label in its row.
+   *
+   * Vikunja v2's task rows don't carry any of the conventional
+   * `task-item` / `single-task` classes our generic items locator
+   * targets — they're plain `<div>`s inside a `<ul>`. So instead of
+   * scoping through the row, we walk up from the task's title text to
+   * the closest ancestor that owns a `.fancy-checkbox__icon`, and
+   * click the label inside that ancestor. Force-click sidesteps the
+   * SVG's pointer-events styling.
+   */
   async markDone(title: string): Promise<void> {
-    const item = this.taskByTitle(title);
+    const titleEl = this.page.getByText(title, { exact: false }).first();
+    const row = titleEl.locator(
+      'xpath=ancestor::*[descendant::*[contains(@class, "fancy-checkbox__icon")]][1]',
+    );
 
-    // Vikunja v2 keeps a native <input type="checkbox"> in the DOM —
-    // it's the element that owns the done state, just visually hidden
-    // under the fancy SVG. .check({ force: true }) sets the value and
-    // dispatches input/change events without needing the input to be
-    // physically clickable on screen, which is exactly what Vue needs
-    // to react.
-    const native = item.locator('input[type="checkbox"]').first();
-    if ((await native.count()) > 0) {
-      await native.check({ force: true });
+    const label = row.locator('label:has(.fancy-checkbox__icon)').first();
+    if ((await label.count()) > 0) {
+      await label.click({ force: true });
       return;
     }
 
-    // No native control — click the fancy wrapper as a fallback.
-    const fancy = item
-      .locator(
-        [
-          'label:has(.fancy-checkbox__icon)',
-          '.fancy-checkbox',
-          '.fancy-checkbox__icon',
-        ].join(', '),
-      )
-      .first();
-    await fancy.click({ force: true });
+    // Fallback: click the SVG directly if there's no <label> wrapping it.
+    await row.locator('.fancy-checkbox__icon').first().click({ force: true });
   }
 }
