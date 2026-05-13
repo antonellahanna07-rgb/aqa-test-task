@@ -98,6 +98,23 @@ test.describe('Project details — task creation', () => {
 
     await expect(details.tasks.taskByTitle(task.title)).toBeVisible();
   });
+
+  test('a user can mark a task as done from the UI', async ({ page, api }) => {
+    const project = await useFreshProject(api);
+    const task = await api.tasks.create(project.id, TaskFactory.build());
+
+    const details = new ProjectDetailsPage(page, project.id);
+    await details.goto();
+    await details.tasks.markDone(task.title);
+
+    // API ground truth: the toggle persisted server-side.
+    await expect
+      .poll(async () => {
+        const all = await api.tasks.listForProject(project.id);
+        return all.find((t) => t.id === task.id)?.done;
+      })
+      .toBe(true);
+  });
 });
 
 test.describe('Project details — views render seeded tasks', () => {

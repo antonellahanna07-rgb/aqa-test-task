@@ -79,4 +79,30 @@ export class TaskList extends BaseComponent {
   async count(): Promise<number> {
     return this.items.count();
   }
+
+  /**
+   * Toggle a task's done state via its row checkbox. Vikunja v2 renders
+   * a `<input type="checkbox">` next to each task title; some builds
+   * use a styled control with an aria-label. Try the native input
+   * first, then fall back.
+   */
+  async markDone(title: string): Promise<void> {
+    const item = this.taskByTitle(title);
+    const checkbox = item.locator('input[type="checkbox"]').first();
+    if (await checkbox.isVisible({ timeout: 500 }).catch(() => false)) {
+      await checkbox.check();
+      return;
+    }
+    await item
+      .locator(
+        [
+          '[aria-label*="done" i]',
+          '[aria-label*="complete" i]',
+          '.done',
+          '.task-checkbox',
+        ].join(', '),
+      )
+      .first()
+      .click();
+  }
 }
