@@ -73,25 +73,29 @@ export class RegisterPage extends BasePage {
 
   /**
    * Touch a field and clear its value so the form treats it as edited
-   * but empty — this is what surfaces per-field validation.
+   * but empty. We use real keyboard clearing (Ctrl+A → Backspace) rather
+   * than `fill('')` because some Vue forms react to keyboard events more
+   * reliably than to programmatic value sets.
    */
   async clearField(field: 'username' | 'email' | 'password'): Promise<void> {
     const locator = this.inputFor(field);
     await locator.click();
-    await locator.fill('');
+    await locator.press('ControlOrMeta+A');
+    await locator.press('Backspace');
     await locator.blur();
   }
 
   /**
    * Inline error scoped to a specific field. Vikunja v2 renders these as
-   * `.message.danger` siblings of the input — we climb to the nearest
-   * wrapping element and search inside, which keeps this resilient to
-   * exact markup changes.
+   * <p class="help is-danger"> and the error text always contains the
+   * field's name ("Please provide a username.", "Please enter a valid
+   * email address.", …). Filtering by text identifies the right error
+   * without depending on the surrounding DOM structure.
    */
   fieldError(field: 'username' | 'email' | 'password'): Locator {
-    return this.inputFor(field)
-      .locator('xpath=ancestor::div[1]')
-      .locator('.message.danger, .help.is-danger, .help.danger, [role="alert"]')
+    return this.page
+      .locator('.help.is-danger, .help.danger, .message.danger')
+      .filter({ hasText: new RegExp(field, 'i') })
       .first();
   }
 
