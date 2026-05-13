@@ -72,6 +72,15 @@ export class TaskList extends BaseComponent {
     return this.items.filter({ hasText: title }).first();
   }
 
+  /**
+   * Open a task's details by clicking on its title. Vikunja routes to
+   * `/tasks/<id>` (or opens a details drawer overlaying the list, depending
+   * on the build) — either way the title element receives the click.
+   */
+  async openTask(title: string): Promise<void> {
+    await this.page.getByText(title, { exact: false }).first().click();
+  }
+
   async hasTask(title: string): Promise<boolean> {
     return (await this.taskByTitle(title).count()) > 0;
   }

@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures';
 import { ProjectFactory, TaskFactory } from '../fixtures/factories';
 import { ProjectDetailsPage } from '../pages/project-details.page';
+import { TaskDetailsPage } from '../pages/task-details.page';
 import type { Project } from '../fixtures/api-types';
 
 /**
@@ -99,15 +100,25 @@ test.describe('Project details — task creation', () => {
     await expect(details.tasks.taskByTitle(task.title)).toBeVisible();
   });
 
-  test('a user can mark a task as done from the UI', async ({ page, api }) => {
+  test('a user can open a task and mark it as done from the details page', async ({
+    page,
+    api,
+  }) => {
     const project = await useFreshProject(api);
     const task = await api.tasks.create(project.id, TaskFactory.build());
 
-    const details = new ProjectDetailsPage(page, project.id);
-    await details.goto();
-    await details.tasks.markDone(task.title);
+    // Step 1: from the project page, click the task's title to open
+    // its details surface.
+    const projectDetails = new ProjectDetailsPage(page, project.id);
+    await projectDetails.goto();
+    await projectDetails.tasks.openTask(task.title);
 
-    // API ground truth: the toggle persisted server-side.
+    // Step 2: on the task details page, hit "Mark as done".
+    const taskDetails = new TaskDetailsPage(page);
+    await taskDetails.waitUntilLoaded();
+    await taskDetails.markAsDoneButton.click();
+
+    // API ground truth: the toggle actually persisted server-side.
     await expect
       .poll(async () => {
         const all = await api.tasks.listForProject(project.id);
