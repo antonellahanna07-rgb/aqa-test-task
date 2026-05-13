@@ -71,6 +71,41 @@ export class RegisterPage extends BasePage {
     await this.submitForm();
   }
 
+  /**
+   * Touch a field and clear its value so the form treats it as edited
+   * but empty — this is what surfaces per-field validation.
+   */
+  async clearField(field: 'username' | 'email' | 'password'): Promise<void> {
+    const locator = this.inputFor(field);
+    await locator.click();
+    await locator.fill('');
+    await locator.blur();
+  }
+
+  /**
+   * Inline error scoped to a specific field. Vikunja v2 renders these as
+   * `.message.danger` siblings of the input — we climb to the nearest
+   * wrapping element and search inside, which keeps this resilient to
+   * exact markup changes.
+   */
+  fieldError(field: 'username' | 'email' | 'password'): Locator {
+    return this.inputFor(field)
+      .locator('xpath=ancestor::div[1]')
+      .locator('.message.danger, .help.is-danger, .help.danger, [role="alert"]')
+      .first();
+  }
+
+  private inputFor(field: 'username' | 'email' | 'password'): Locator {
+    switch (field) {
+      case 'username':
+        return this.username;
+      case 'email':
+        return this.email;
+      case 'password':
+        return this.password;
+    }
+  }
+
   async errorMessage(): Promise<string | null> {
     if (await this.errorBanner.isVisible().catch(() => false)) {
       return (await this.errorBanner.innerText()).trim();

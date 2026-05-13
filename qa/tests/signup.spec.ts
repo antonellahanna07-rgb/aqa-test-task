@@ -45,6 +45,26 @@ test.describe('Signup @smoke', () => {
     await expect(registerPage.submitButton).toBeDisabled();
   });
 
+  // One test per required field: fill the form with valid input, then clear
+  // a single field. The form should refuse to submit AND surface an inline
+  // error scoped to that specific field.
+  for (const field of ['username', 'email', 'password'] as const) {
+    test(`leaving ${field} empty keeps submit disabled and shows a field-level error`, async ({
+      registerPage,
+    }) => {
+      const user = UserFactory.build();
+
+      await registerPage.goto();
+      await registerPage.fillForm(user);
+      await registerPage.clearField(field);
+
+      // Primary signal: client-side validation gates the button.
+      await expect(registerPage.submitButton).toBeDisabled();
+      // Secondary signal: an inline error appears beneath the empty field.
+      await expect(registerPage.fieldError(field)).toBeVisible();
+    });
+  }
+
   test('clicking the login button on the signup screen navigates to /login', async ({
     page,
     registerPage,
