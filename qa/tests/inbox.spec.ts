@@ -2,15 +2,20 @@ import { test, expect } from '../fixtures';
 import { InboxPage } from '../pages/inbox.page';
 
 test.describe('Sidebar → Inbox @smoke', () => {
-  test('navigating to Inbox via the sidebar lands on the inbox route', async ({
+  test('navigating to Inbox via the sidebar lands on the inbox project', async ({
     page,
     dashboardPage,
   }) => {
     await dashboardPage.goto();
     await dashboardPage.sidebar.navigateTo('Inbox');
-    // Vikunja's Inbox is rendered as the special pinned project `-1`,
-    // but some builds expose it at `/inbox`. Accept either.
-    await expect(page).toHaveURL(/\/(inbox|projects\/-1)/);
+
+    // Vikunja v2's Inbox is a per-user special project — its id is not
+    // a magic `-1`, it's whatever Vikunja assigned for this user
+    // (route shape: `/projects/<id>/<viewId>`). So we assert the URL is
+    // some project page AND that the page identifies itself as the
+    // Inbox via its title heading.
+    await expect(page).toHaveURL(/\/projects\/\d+/);
+    await expect(page.getByRole('heading', { name: /^\s*inbox\s*$/i }).first()).toBeVisible();
   });
 
   test('the inbox page renders the shared shell (sidebar + navbar)', async ({ page }) => {
