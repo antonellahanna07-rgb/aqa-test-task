@@ -1,15 +1,5 @@
 import { APIRequestContext, APIResponse, request as pwRequest } from '@playwright/test';
-import {
-  AuthCredentials,
-  AuthToken,
-  Project,
-  ProjectCreatePayload,
-  ProjectUpdatePayload,
-  RegisterPayload,
-  Task,
-  TaskCreatePayload,
-  User,
-} from './api-types';
+import { AuthCredentials, AuthToken, RegisterPayload, User } from './api-types';
 
 export interface ApiClientOptions {
   baseUrl: string;
@@ -25,8 +15,8 @@ export interface ApiClientOptions {
  *   - issue raw HTTP requests with consistent headers
  *   - assert successful status codes uniformly
  *
- * Resource-specific clients (UsersApi, ProjectsApi, TasksApi) extend this
- * base without modifying it (Open/Closed Principle).
+ * Resource-specific clients (UsersApi today, more in the future) extend
+ * this base without modifying it (Open/Closed Principle).
  */
 export class BaseApiClient {
   protected readonly baseUrl: string;
@@ -122,7 +112,7 @@ export class BaseApiClient {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Resource clients                                                   */
+/*  Resource client                                                    */
 /* ------------------------------------------------------------------ */
 
 export class UsersApi extends BaseApiClient {
@@ -158,74 +148,19 @@ export class UsersApi extends BaseApiClient {
   }
 }
 
-export class ProjectsApi extends BaseApiClient {
-  async list(): Promise<Project[]> {
-    return this.get<Project[]>('/projects');
-  }
-
-  async getById(id: number): Promise<Project> {
-    return this.get<Project>(`/projects/${id}`);
-  }
-
-  async create(payload: ProjectCreatePayload): Promise<Project> {
-    return this.put<Project>('/projects', payload);
-  }
-
-  async update(id: number, payload: ProjectUpdatePayload): Promise<Project> {
-    return this.post<Project>(`/projects/${id}`, payload);
-  }
-
-  async remove(id: number): Promise<void> {
-    await this.delete<void>(`/projects/${id}`);
-  }
-
-  async findByTitle(title: string): Promise<Project | undefined> {
-    const all = await this.list();
-    return all.find((p) => p.title === title);
-  }
-}
-
-export class TasksApi extends BaseApiClient {
-  async listForProject(projectId: number): Promise<Task[]> {
-    return this.get<Task[]>(`/projects/${projectId}/tasks`);
-  }
-
-  async create(projectId: number, payload: TaskCreatePayload): Promise<Task> {
-    return this.put<Task>(`/projects/${projectId}/tasks`, payload);
-  }
-
-  async update(id: number, payload: Partial<Task>): Promise<Task> {
-    return this.post<Task>(`/tasks/${id}`, payload);
-  }
-
-  async remove(id: number): Promise<void> {
-    await this.delete<void>(`/tasks/${id}`);
-  }
-
-  async markDone(id: number, done = true): Promise<Task> {
-    return this.update(id, { done });
-  }
-}
-
 /* ------------------------------------------------------------------ */
-/*  Facade composing the resource clients                              */
+/*  Facade — composition root for resource clients                     */
 /* ------------------------------------------------------------------ */
 
 export class ApiClient {
   readonly users: UsersApi;
-  readonly projects: ProjectsApi;
-  readonly tasks: TasksApi;
 
   constructor(opts: ApiClientOptions) {
     this.users = new UsersApi(opts);
-    this.projects = new ProjectsApi(opts);
-    this.tasks = new TasksApi(opts);
   }
 
   setToken(token: string | undefined): void {
     this.users.setToken(token);
-    this.projects.setToken(token);
-    this.tasks.setToken(token);
   }
 
   async loginAs(username: string, password: string): Promise<AuthToken> {
@@ -235,6 +170,6 @@ export class ApiClient {
   }
 
   async dispose(): Promise<void> {
-    await Promise.all([this.users.dispose(), this.projects.dispose(), this.tasks.dispose()]);
+    await this.users.dispose();
   }
 }
