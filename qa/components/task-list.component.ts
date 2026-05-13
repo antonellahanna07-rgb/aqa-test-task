@@ -83,32 +83,27 @@ export class TaskList extends BaseComponent {
   /**
    * Toggle a task's done state by clicking its row checkbox.
    *
-   * Vikunja v2 doesn't use a native `<input type="checkbox">` — it
-   * renders a custom "fancy checkbox": an `<svg class="fancy-checkbox__icon">`
-   * inside a clickable wrapper (label or div). We target the wrapper
-   * when it exists, falling back to the SVG itself.
+   * Vikunja v2 keeps a native `<input type="checkbox">` in the DOM but
+   * styles it invisible — the actual click target is a custom "fancy
+   * checkbox" wrapper holding an `<svg class="fancy-checkbox__icon">`.
+   * We target the wrapper (or its SVG) and `force:true` the click so
+   * Playwright doesn't refuse on pointer-events / stacking grounds.
    *
-   * A native-checkbox fallback is kept so future Vikunja builds (or
-   * other apps that reuse this component) work without changes.
+   * The plain `input[type="checkbox"]` fallback is kept for other apps
+   * that reuse this component with a stock control.
    */
   async markDone(title: string): Promise<void> {
     const item = this.taskByTitle(title);
-
-    const nativeCheckbox = item.locator('input[type="checkbox"]').first();
-    if (await nativeCheckbox.isVisible({ timeout: 500 }).catch(() => false)) {
-      await nativeCheckbox.check();
-      return;
-    }
-
-    const fancyCheckbox = item
+    const checkbox = item
       .locator(
         [
           '.fancy-checkbox',
           'label:has(.fancy-checkbox__icon)',
           '.fancy-checkbox__icon',
+          'input[type="checkbox"]',
         ].join(', '),
       )
       .first();
-    await fancyCheckbox.click();
+    await checkbox.click({ force: true });
   }
 }
