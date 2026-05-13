@@ -16,8 +16,11 @@ export class LoginPage extends BasePage {
    * enabled/disabled state without going through a wrapper method.
    */
   readonly submitButton: Locator;
+  /** Exposed so tests can assert on visibility/checked state directly. */
+  readonly stayLoggedInCheckbox: Locator;
   private readonly errorBanner: Locator;
   private readonly registerLink: Locator;
+  private readonly forgotPasswordLink: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -27,10 +30,24 @@ export class LoginPage extends BasePage {
     this.username = page.getByRole('textbox', { name: /username|e-?mail/i });
     this.password = page.getByRole('textbox', { name: /^\s*password\s*$/i });
     this.submitButton = page.getByRole('button', { name: /^\s*log\s*in\s*$/i });
+    this.stayLoggedInCheckbox = page
+      .getByLabel(/stay\s*logged\s*in|remember\s*me|stay\s*signed\s*in/i)
+      .or(
+        page.getByRole('checkbox', {
+          name: /stay\s*logged\s*in|remember\s*me|stay\s*signed\s*in/i,
+        }),
+      )
+      .first();
     this.errorBanner = page
       .locator('.message.danger, .notification.is-danger, [role="alert"]')
       .first();
     this.registerLink = page.getByRole('link', { name: /create.*account|register|sign\s*up/i });
+    // "Forgot your password?" — typically a link, occasionally rendered
+    // as a button. Cover both.
+    this.forgotPasswordLink = page
+      .getByRole('link', { name: /forgot.*password/i })
+      .or(page.getByRole('button', { name: /forgot.*password/i }))
+      .first();
   }
 
   async waitUntilLoaded(): Promise<void> {
@@ -98,5 +115,10 @@ export class LoginPage extends BasePage {
   /** Click the "Create account" / "Register" link on the login page. */
   async goToRegister(): Promise<void> {
     await this.registerLink.click();
+  }
+
+  /** Click the "Forgot your password?" affordance on the login page. */
+  async clickForgotPassword(): Promise<void> {
+    await this.forgotPasswordLink.click();
   }
 }

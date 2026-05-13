@@ -40,6 +40,51 @@ test.describe('Login @smoke', () => {
     await expect.poll(async () => loginPage.errorMessage()).not.toBeNull();
   });
 
+  test('login fails with an email that does not exist', async ({ loginPage }) => {
+    // Symmetric to the unknown-username test — Vikunja accepts either
+    // identifier, so both rejection paths should surface an error.
+    const ghost = UserFactory.build();
+    await loginPage.goto();
+    await loginPage.login(ghost.email, ghost.password);
+
+    await expect.poll(async () => loginPage.errorMessage()).not.toBeNull();
+  });
+
+  test('the "stay logged in" checkbox is present and toggleable', async ({ loginPage }) => {
+    await loginPage.goto();
+    await expect(loginPage.stayLoggedInCheckbox).toBeVisible();
+
+    // Defaults to unchecked — Vikunja is opt-in for long-lived sessions.
+    await expect(loginPage.stayLoggedInCheckbox).not.toBeChecked();
+
+    // User can opt in...
+    await loginPage.stayLoggedInCheckbox.check();
+    await expect(loginPage.stayLoggedInCheckbox).toBeChecked();
+
+    // ...and back out.
+    await loginPage.stayLoggedInCheckbox.uncheck();
+    await expect(loginPage.stayLoggedInCheckbox).not.toBeChecked();
+  });
+
+  test('clicking "forgot your password?" opens the password recovery flow', async ({
+    page,
+    loginPage,
+  }) => {
+    await loginPage.goto();
+    await loginPage.clickForgotPassword();
+
+    // Vikunja's recovery flow is typically either a URL change or a
+    // recovery form rendered in place — accept either signal so the
+    // test isn't tied to a specific UX choice.
+    await expect
+      .poll(async () => {
+        if (!/\/login\/?$/.test(page.url())) return true;
+        const cue = page.getByRole('button', { name: /reset|send|recover|request/i }).first();
+        return cue.isVisible().catch(() => false);
+      })
+      .toBe(true);
+  });
+
   test('the login button is disabled when required fields are empty', async ({ loginPage }) => {
     await loginPage.goto();
     // Form opens with empty fields → client-side validation should keep
