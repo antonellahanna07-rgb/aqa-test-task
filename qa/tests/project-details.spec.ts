@@ -150,6 +150,52 @@ test.describe('Project details — views render seeded tasks', () => {
   }
 });
 
+test.describe('Project details — done state reflected in views', () => {
+  // Mark the task done via API (fast, deterministic), then assert that
+  // the corresponding view actually surfaces the done state. The "done
+  // indicator" check is intentionally permissive — Vikunja v2 may
+  // signal done-ness via a class, an aria-checked attribute, or a
+  // checked checkbox depending on the view.
+  for (const view of ['Table', 'Kanban'] as const) {
+    test(`a task marked done is visible AND shows a done cue in the ${view} view`, async ({
+      page,
+      api,
+    }) => {
+      const project = await api.projects.create(ProjectFactory.build());
+      const task = await api.tasks.create(project.id, TaskFactory.build());
+      await api.tasks.markDone(task.id, true);
+
+      const details = new ProjectDetailsPage(page, project.id);
+      await details.goto();
+      await details.views.switchTo(view);
+
+      // 1. Task is still rendered.
+      const taskCue = page.getByText(task.title, { exact: false }).first();
+      await expect(taskCue).toBeVisible();
+
+      // 2. Climb to the row/card containing the title and look for any
+      //    done-flavored cue inside it. Covers the common patterns
+      //    Vikunja uses: a class with "done"/"complete" in it, an
+      //    aria-checked attribute, or a checked checkbox.
+      const container = taskCue.locator(
+        'xpath=ancestor::*[self::tr or self::li or self::div][1]',
+      );
+      const doneIndicator = container
+        .locator(
+          [
+            '[class*="done" i]',
+            '[class*="complete" i]',
+            '.is-done',
+            '[aria-checked="true"]',
+            'input[type="checkbox"]:checked',
+          ].join(', '),
+        )
+        .first();
+      await expect(doneIndicator).toBeVisible();
+    });
+  }
+});
+
 test.describe('Project details — task input validation', () => {
   test('submitting an empty task title does not create anything', async ({ page, api }) => {
     const project = await useFreshProject(api);
