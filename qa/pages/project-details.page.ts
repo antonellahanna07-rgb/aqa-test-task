@@ -1,6 +1,7 @@
 import { Locator, Page } from '@playwright/test';
 import { AuthenticatedPage } from './authenticated.page';
 import { TaskList } from '../components/task-list.component';
+import { ProjectViewTabs } from '../components/project-view-tabs.component';
 
 /**
  * Vikunja v2 auto-routes to `/projects/<id>` after creating a project,
@@ -9,8 +10,9 @@ import { TaskList } from '../components/task-list.component';
  * to a known project id via `goto()`.
  *
  * Inherits the authenticated shell (Sidebar + NavBar) from
- * {@link AuthenticatedPage} and composes a {@link TaskList} so tests
- * can read/add tasks without reaching into raw locators.
+ * {@link AuthenticatedPage} and composes:
+ *   - {@link TaskList}        — task input + rendered items
+ *   - {@link ProjectViewTabs} — List / Gantt / Table / Kanban switcher
  */
 export class ProjectDetailsPage extends AuthenticatedPage {
   protected readonly path: string;
@@ -19,6 +21,8 @@ export class ProjectDetailsPage extends AuthenticatedPage {
   readonly projectTitleHeading: Locator;
   /** Task list panel embedded on the page. */
   readonly tasks: TaskList;
+  /** View tab strip (List / Gantt / Table / Kanban). */
+  readonly views: ProjectViewTabs;
 
   /**
    * @param projectId  When provided, `goto()` navigates to
@@ -34,6 +38,7 @@ export class ProjectDetailsPage extends AuthenticatedPage {
       .locator('h1, h2, .project-title, [class*="project-title" i]')
       .first();
     this.tasks = new TaskList(page);
+    this.views = new ProjectViewTabs(page);
   }
 
   async waitUntilLoaded(): Promise<void> {

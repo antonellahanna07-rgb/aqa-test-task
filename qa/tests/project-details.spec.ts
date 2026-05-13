@@ -100,6 +100,28 @@ test.describe('Project details — task creation', () => {
   });
 });
 
+test.describe('Project details — views render seeded tasks', () => {
+  // Parameterized over the two non-default views the user asked us to
+  // cover. The default (List) is already exercised in the task-creation
+  // describe above; Gantt is intentionally skipped because it shows
+  // tasks on a timeline rather than a textual surface that's easy to
+  // assert on.
+  for (const view of ['Table', 'Kanban'] as const) {
+    test(`an API-seeded task is visible in the ${view} view`, async ({ page, api }) => {
+      const project = await api.projects.create(ProjectFactory.build());
+      const task = await api.tasks.create(project.id, TaskFactory.build());
+
+      const details = new ProjectDetailsPage(page, project.id);
+      await details.goto();
+      await details.views.switchTo(view);
+
+      // Whichever DOM shape the view chooses (table row / kanban card),
+      // the task title text should land somewhere visible on the page.
+      await expect(page.getByText(task.title, { exact: false }).first()).toBeVisible();
+    });
+  }
+});
+
 test.describe('Project details — task input validation', () => {
   test('submitting an empty task title does not create anything', async ({ page, api }) => {
     const project = await useFreshProject(api);
